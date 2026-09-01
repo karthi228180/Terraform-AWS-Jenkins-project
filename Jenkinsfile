@@ -205,13 +205,12 @@ pipeline {
     post {
         failure {
             script {
-                withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_URL'),
-                                  string(credentialsId: 'notify-email', variable: 'NOTIFY_EMAIL')]) {
-                    sh """
-                        curl -s -X POST -H 'Content-type: application/json' \
-                          --data '{"text":":x: Build ${env.JOB_NAME} #${env.BUILD_NUMBER} failed on branch ${env.BRANCH_NAME}. ${env.BUILD_URL}"}' \
-                          "\$SLACK_URL" || true
-                    """
+                withCredentials([string(credentialsId: 'notify-email', variable: 'NOTIFY_EMAIL')]) {
+                    // sh """
+                    //     curl -s -X POST -H 'Content-type: application/json' \
+                    //       --data '{"text":":x: Build ${env.JOB_NAME} #${env.BUILD_NUMBER} failed on branch ${env.BRANCH_NAME}. ${env.BUILD_URL}"}' \
+                    //       "\$SLACK_URL" || true
+                    // """
                     emailext(
                         to: "${NOTIFY_EMAIL}",
                         subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
