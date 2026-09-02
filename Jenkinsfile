@@ -41,6 +41,7 @@ pipeline {
     environment {
         AWS_REGION       = 'ap-south-1'
         PROJECT_NAME     = 'demo-proj'
+        PATH             = "/usr/local/bin:${env.PATH}"
         ACCOUNT_ID       = sh(script: 'aws sts get-caller-identity --query Account --output text', returnStdout: true).trim()
         REGISTRY         = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         IMAGE_APP_TIER   = "${REGISTRY}/${PROJECT_NAME}-app-tier"
@@ -204,6 +205,7 @@ pipeline {
 
     post {
         failure {
+            node {
             script {
                 withCredentials([string(credentialsId: 'notify-email', variable: 'NOTIFY_EMAIL')]) {
                     // sh """
@@ -212,7 +214,7 @@ pipeline {
                     //       "\$SLACK_URL" || true
                     // """
                     emailext(
-                        to: "${NOTIFY_EMAIL}",
+                        to: "NOTIFY_EMAIL",
                         subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                         body: "Pipeline failed on branch ${env.BRANCH_NAME}.\nDetails: ${env.BUILD_URL}"
                     )
@@ -229,6 +231,7 @@ pipeline {
                     fi
                 '''
             }
+          }
         }
         always {
             cleanWs()
