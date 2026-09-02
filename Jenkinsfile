@@ -205,7 +205,6 @@ pipeline {
 
     post {
         failure {
-            node {
             script {
                 withCredentials([string(credentialsId: 'notify-email', variable: 'NOTIFY_EMAIL')]) {
                     // sh """
@@ -231,7 +230,6 @@ pipeline {
                     fi
                 '''
             }
-          }
         }
         always {
             cleanWs()
