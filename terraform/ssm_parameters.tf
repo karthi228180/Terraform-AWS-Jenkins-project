@@ -27,6 +27,7 @@ resource "aws_ssm_parameter" "db_host" {
   name  = "/${var.project_name}/${var.environment}/db/host"
   type  = "String"
   value = aws_db_instance.postgres.address
+  overwrite = true
 
   tags = {
     Name = "${var.project_name}-db-host"

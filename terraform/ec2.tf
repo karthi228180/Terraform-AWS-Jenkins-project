@@ -267,8 +267,8 @@ resource "aws_instance" "app" {
   subnet_id              = aws_subnet.private[count.index % length(aws_subnet.private)].id
   vpc_security_group_ids = [aws_security_group.ec2.id]
   #key_name               = var.key_name != "" ? var.key_name : null #
-  key_name               = "karthikeypair"
-  iam_instance_profile   = aws_iam_instance_profile.app_ec2.name
+  key_name             = "karthikeypair"
+  iam_instance_profile = aws_iam_instance_profile.app_ec2.name
 
   root_block_device {
     volume_type = "gp3"
