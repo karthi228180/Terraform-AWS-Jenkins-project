@@ -299,10 +299,12 @@ resource "aws_instance" "jenkins" {
       sleep 2
     done
 
+    DOCKER_GID=$(getent group docker | cut -d: -f3)
+
     # ---------- Install tools inside Jenkins container ----------
     # Install docker CLI + common tools inside Jenkins so pipelines can use them
 
-    docker exec -it -u root jenkins /bin/bash -c '
+    docker exec -u root jenkins /bin/bash -c '
       set -euxo pipefail
       apt-get update
       apt-get install -y docker.io curl unzip git
@@ -321,6 +323,16 @@ resource "aws_instance" "jenkins" {
       aws --version
       node --version
       npm --version
+
+     DOCKER_GID='"$DOCKER_GID"'
+      if ! getent group "$DOCKER_GID" >/dev/null; then
+          groupadd -g "$DOCKER_GID" dockerhost
+      fi
+       usermod -aG "$DOCKER_GID" jenkins
+
+      chmod 660 /var/run/docker.sock
+      chown root:docker /var/run/docker.sock
+
 
     # ---------- Install tools on the host (for pipelines / admin) ----------
     # AWS CLI v2
