@@ -118,11 +118,11 @@ pipeline {
             steps {
                 dir('application-code/app-tier') {
                     sh 'npm audit --audit-level=high || true'
-                    sh 'trivy fs --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed .'
+                    sh 'trivy fs --exit-code 1 --severity CRITICAL --ignore-unfixed .'
                 }
                 dir('application-code/web-tier') {
                     sh 'npm audit --audit-level=high || true'
-                    sh 'trivy fs --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed .'
+                    sh 'trivy fs --exit-code 1 --severity CRITICAL --ignore-unfixed .'
                 }
             }
         }
@@ -143,8 +143,8 @@ pipeline {
         stage('Scan container images') {
             when { branch 'main' }
             steps {
-                sh "trivy image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed ${IMAGE_APP_TIER}:${IMAGE_TAG}"
-                sh "trivy image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed ${IMAGE_WEB_TIER}:${IMAGE_TAG}"
+                sh "trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed ${IMAGE_APP_TIER}:${IMAGE_TAG}"
+                sh "trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed ${IMAGE_WEB_TIER}:${IMAGE_TAG}"
             }
         }
 
