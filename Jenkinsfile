@@ -101,8 +101,8 @@ pipeline {
                 '''
                 dir('application-code/app-tier') {
                     withEnv([
-                        'DB_HOST=localhost', 'DB_PORT=5433', 'DB_DATABASE=webappdb_test',
-                        'DB_USER=postgres', "DB_PWD=${TEST_DB_PWD}", 'DB_SSL=false'
+                        'DB_HOST=172.17.0.1', 'DB_PORT=5433', 'DB_DATABASE=webappdb_test',
+                        'DB_USER=postgres', "DB_PWD=${env.TEST_DB_PWD}", 'DB_SSL=false'
                     ]) {
                         sh 'npm run test:integration'
                     }
