@@ -312,6 +312,11 @@ resource "aws_instance" "jenkins" {
       /tmp/aws/install
       rm -rf /tmp/awscliv2.zip /tmp/aws
 
+            # Install Node.js (with npm) inside container
+      curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+      apt-get install -y nodejs
+    '
+
     # ---------- Install tools on the host (for pipelines / admin) ----------
     # AWS CLI v2
     curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
@@ -321,6 +326,9 @@ resource "aws_instance" "jenkins" {
     # Trivy
     curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    apt-get install -y nodejs
+    
     # Terraform (via HashiCorp apt repo)
     apt-get install -y gnupg software-properties-common
     curl -fsSL https://rpm.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
