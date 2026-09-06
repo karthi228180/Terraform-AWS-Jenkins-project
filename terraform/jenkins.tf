@@ -191,6 +191,7 @@ resource "aws_instance" "jenkins" {
 }   */
 #####################################################################################################
 
+/*
 ########################################
 # Jenkins host
 #   - Lives in a public subnet because it needs outbound internet for
@@ -347,6 +348,181 @@ resource "aws_instance" "jenkins" {
 
 
     # Terraform (via HashiCorp apt repo)
+    apt-get install -y gnupg software-properties-common
+    curl -fsSL https://rpm.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://rpm.releases.hashicorp.com/ubuntu $(lsb_release -cs) main" \
+      | tee /etc/apt/sources.list.d/hashicorp.list
+    apt-get update
+    apt-get install -y terraform
+  EOF
+
+  tags = {
+    Name = "${var.project_name}-jenkins"
+    Role = "ci-cd"
+  }
+}   
+*/
+
+
+
+#########################################################################################################
+
+resource "aws_instance" "jenkins" {
+  count                       = var.is_primary_environment ? 1 : 0
+  ami                         = local.ami_id
+  instance_type               = var.jenkins_instance_type
+  subnet_id                   = aws_subnet.public[0].id
+  vpc_security_group_ids      = [aws_security_group.jenkins[0].id]
+  key_name                    = "karthikeypair"
+  iam_instance_profile        = aws_iam_instance_profile.jenkins[0].name
+  associate_public_ip_address = true
+
+  root_block_device {
+    volume_type = "gp3"
+    volume_size = 40 # Jenkins home + Docker image cache needs more room than the app hosts
+    encrypted   = true
+  }
+
+  user_data = <<-EOF
+    #!/bin/bash
+    set -euxo pipefail
+
+    # ---------- Update and install basic tools ----------
+    apt-get update
+    apt-get install -y \
+      apt-transport-https \
+      ca-certificates \
+      curl \
+      gnupg \
+      lsb-release \
+      unzip \
+      git
+
+    # ---------- Install Docker ----------
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    chmod a+r /etc/apt/keyrings/docker.asc
+
+    echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+      $(lsb_release -cs) stable" | \
+      tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+    apt-get update
+    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+    systemctl enable docker
+    systemctl start docker
+
+    # Wait until Docker is ready
+    for i in {1..30}; do
+      if docker info >/dev/null 2>&1; then
+        break
+      fi
+      sleep 2
+    done
+
+    usermod -aG docker ubuntu
+
+    # ---------- Install Docker Compose v2 (standalone) ----------
+    mkdir -p /usr/local/lib/docker/cli-plugins
+    curl -sfL https://github.com/docker/compose/releases/download/v2.30.0/docker-compose-linux-x86_64 \
+      -o /usr/local/lib/docker/cli-plugins/docker-compose
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+    ln -sf /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
+
+    docker compose version || docker-compose version
+
+    # ---------- Install CloudWatch Agent ----------
+    curl -fsSL https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb -o /tmp/amazon-cloudwatch-agent.deb
+    dpkg -i /tmp/amazon-cloudwatch-agent.deb || apt-get install -f -y
+
+    cat <<'CWCONFIG' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+    ${local.cw_agent_config_app}
+    CWCONFIG
+
+    /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+      -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
+
+    # ---------- Prepare Jenkins home ----------
+    mkdir -p /var/jenkins_home
+    chown 1000:1000 /var/jenkins_home
+
+    # ---------- Run Jenkins in Docker ----------
+    docker run -d --name jenkins --restart unless-stopped \
+      -p 8080:8080 -p 50000:50000 \
+      -v /var/jenkins_home:/var/jenkins_home \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -e JAVA_OPTS="-Djenkins.install.runSetupWizard=true" \
+      jenkins/jenkins:lts
+
+    # Wait for Jenkins container to be up
+    for i in {1..30}; do
+      if docker ps --format '{{.Names}}' | grep -q '^jenkins$'; then
+        break
+      fi
+      sleep 2
+    done
+
+    # Get Docker group GID from host (for socket access)
+    DOCKER_GID=$(getent group docker | cut -d: -f3)
+
+    # ---------- Install tools inside Jenkins container ----------
+    docker exec -u root jenkins /bin/bash -c '
+      set -euxo pipefail
+
+      apt-get update
+      apt-get install -y docker.io curl unzip git
+
+      # AWS CLI v2
+      curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+      unzip -q /tmp/awscliv2.zip -d /tmp
+      /tmp/aws/install
+      rm -rf /tmp/awscliv2.zip /tmp/aws
+
+      # Node.js 20.x (with npm)
+      curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+      apt-get install -y nodejs
+
+      # Trivy
+      curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+      # Verify tools
+      aws --version
+      node --version
+      npm --version
+      trivy --version
+
+      # Configure Docker socket access for jenkins user
+      DOCKER_GID='"$DOCKER_GID"'
+      if ! getent group "$DOCKER_GID" >/dev/null; then
+        groupadd -g "$DOCKER_GID" dockerhost
+      fi
+      usermod -aG "$DOCKER_GID" jenkins
+    '
+
+    # Fix Docker socket permissions on host
+    chmod 660 /var/run/docker.sock
+    chown root:docker /var/run/docker.sock
+
+    # Restart Jenkins container so group membership applies
+    docker restart jenkins
+
+    # ---------- Install tools on the host (for admin / host-side use) ----------
+    # AWS CLI v2
+    curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+    unzip -q /tmp/awscliv2.zip -d /tmp
+    /tmp/aws/install
+    rm -rf /tmp/awscliv2.zip /tmp/aws
+
+    # Trivy
+    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+    # Node.js on host (optional, but useful for admin scripts)
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    apt-get install -y nodejs
+
+    # Terraform
     apt-get install -y gnupg software-properties-common
     curl -fsSL https://rpm.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
     echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://rpm.releases.hashicorp.com/ubuntu $(lsb_release -cs) main" \
