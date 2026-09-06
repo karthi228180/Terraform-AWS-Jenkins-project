@@ -301,7 +301,8 @@ resource "aws_instance" "jenkins" {
 
     # ---------- Install tools inside Jenkins container ----------
     # Install docker CLI + common tools inside Jenkins so pipelines can use them
-    docker exec -u root jenkins bash -c '
+
+    docker exec -it -u root jenkins /bin/bash -c '
       set -euxo pipefail
       apt-get update
       apt-get install -y docker.io curl unzip git
@@ -312,10 +313,14 @@ resource "aws_instance" "jenkins" {
       /tmp/aws/install
       rm -rf /tmp/awscliv2.zip /tmp/aws
 
-            # Install Node.js (with npm) inside container
+      # Install Node.js (with npm) inside container  
+
       curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
       apt-get install -y nodejs
-    '
+  
+      aws --version
+      node --version
+      npm --version
 
     # ---------- Install tools on the host (for pipelines / admin) ----------
     # AWS CLI v2
@@ -328,7 +333,8 @@ resource "aws_instance" "jenkins" {
 
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
     apt-get install -y nodejs
-    
+
+
     # Terraform (via HashiCorp apt repo)
     apt-get install -y gnupg software-properties-common
     curl -fsSL https://rpm.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
