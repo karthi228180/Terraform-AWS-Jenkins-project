@@ -166,7 +166,8 @@ pipeline {
         stage('Deploy to staging') {
             when { branch 'main' }
             steps {
-                sh "./scripts/ci-deploy.sh staging ${IMAGE_APP_TIER}:${IMAGE_TAG} ${IMAGE_WEB_TIER}:${IMAGE_TAG}"
+                sh "chmod +x ./scripts/ci-deploy.sh `
+                ./scripts/ci-deploy.sh staging ${IMAGE_APP_TIER}:${IMAGE_TAG} ${IMAGE_WEB_TIER}:${IMAGE_TAG}"
             }
         }
 
