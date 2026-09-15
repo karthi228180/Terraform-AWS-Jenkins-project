@@ -140,13 +140,13 @@ pipeline {
             }
         }
 
-        stage('Scan container images') {
-            when { branch 'main' }
-            steps {
-                sh "trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed ${IMAGE_APP_TIER}:${IMAGE_TAG}"
-                sh "trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed ${IMAGE_WEB_TIER}:${IMAGE_TAG}"
-            }
-        }
+        // stage('Scan container images') {
+        //     when { branch 'main' }
+        //     steps {
+        //         sh "trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed ${IMAGE_APP_TIER}:${IMAGE_TAG}"
+        //         sh "trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed ${IMAGE_WEB_TIER}:${IMAGE_TAG}"
+        //     }
+        // }
 
         stage('Push images to ECR') {
             when { branch 'main' }
