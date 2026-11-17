@@ -8,11 +8,11 @@ environment  = "staging"
 availability_zones   = ["ap-south-1a", "ap-south-1b"]
 public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
 private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24"]
-admin_ssh_cidr       = "203.0.113.10/32" # <-- replace with YOUR IP, not 0.0.0.0/0
+admin_ssh_cidr       = "49.37.176.2/32" # <-- replace with YOUR IP, not 0.0.0.0/0
 
 instance_type          = "t2.large"
 instance_count         = 2
-key_name               = "karthikeypair"
+key_name               = "karthikeypair.pem"
 is_primary_environment = true
 
 db_name     = "appdb"
@@ -34,7 +34,7 @@ web_image_tag = "latest"
 
 # ---- Jenkins ----
 jenkins_instance_type = "t3.medium"
-jenkins_admin_cidr    = "203.0.113.10/32" # <-- replace with YOUR IP
+jenkins_admin_cidr    = "49.37.176.2/32" # <-- replace with YOUR IP
 
 # ---- Monitoring ----
 alert_email        = "karthikcl248@gmail.com" # subscribes to CloudWatch alarm emails
